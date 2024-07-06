@@ -1,12 +1,12 @@
 use dotenv::dotenv;
 use image::Luma;
-use libsql::Builder;
+use libsql::{de, Builder};
 use qrcode::QrCode;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use std::env;
 use tokio;
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct CustomerInfo {
     first_name: String,
     last_name: String,
@@ -34,18 +34,46 @@ impl AsRef<[u8]> for CustomerInfoBytes {
 }
 #[tokio::main]
 async fn main() {
-    let get_qr = CustomerInfo {
-        first_name: "Emir".to_string(),
-        last_name: "Day".to_string(),
-        purse_id: "1231hafjasd123124123412847324982".to_string(),
-    };
+    //Database proccesses
     dotenv().ok();
+
     let url = env::var("TURSO_DATABASE_URL").expect("URL GIR AQ");
+
     let token = env::var("TURSO_AUTH_TOKEN").expect("TOKEN GIR AMK");
 
-    let db = libsql::Builder::new_remote_replica("local.db", url, token).build().await.unwrap();
-    let conn = db.connect().unwrap();
+    println!("Database url : {}", url);
+    println!("Database token : {}", token);
 
+    let db = Builder::new_remote_replica("local.db", url, token)
+        .build()
+        .await
+        .unwrap();
+
+    db.sync().await.unwrap();
+    //We have connection
+    println!("Connected");
+
+    let conn = db.connect().unwrap();
+    let mut statement = conn.prepare("SELECT * FROM customer").await.unwrap();
+    //We have the value
+    println!("We can get the value");
+
+    let row = statement
+        .query([""])
+        .await
+        .unwrap()
+        .next()
+        .await
+        .unwrap()
+        .unwrap();
+    let get_customer = de::from_row::<CustomerInfo>(&row).unwrap();
+    println!("Customer infos {:?}", get_customer);
+
+    let get_qr = CustomerInfo {
+        first_name: get_customer.first_name,
+        last_name: get_customer.last_name,
+        purse_id: get_customer.purse_id,
+    };
 
     let qr_get_bytes = CustomerInfoBytes::new(get_qr);
 
@@ -55,6 +83,5 @@ async fn main() {
     // Render the bits into an image.
     let image = code.render::<Luma<u8>>().build();
 
-    // Save the image.
-    // image.save("qrcode.png").unwrap();
+    image.save("qrcode.png").unwrap();
 }
