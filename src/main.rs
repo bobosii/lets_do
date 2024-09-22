@@ -12,7 +12,8 @@ struct CustomerInfo {
     last_name: String,
     purse_id: String,
 }
-#[warn(dead_code)]
+
+
 struct CustomerInfoBytes {
     customer_info: CustomerInfo,
     bytes: Vec<u8>,
@@ -37,9 +38,9 @@ async fn main() {
     //Database proccesses
     dotenv().ok();
 
-    let url = env::var("TURSO_DATABASE_URL").expect("URL GIR AQ");
+    let url = env::var("TURSO_DATABASE_URL").expect("Please provide an url");
 
-    let token = env::var("TURSO_AUTH_TOKEN").expect("TOKEN GIR AMK");
+    let token = env::var("TURSO_AUTH_TOKEN").expect("Please provide an auth token");
 
     println!("Database url : {}", url);
     println!("Database token : {}", token);
@@ -50,12 +51,12 @@ async fn main() {
         .unwrap();
 
     db.sync().await.unwrap();
-    //We have connection
+
     println!("Connected");
 
     let conn = db.connect().unwrap();
     let mut statement = conn.prepare("SELECT * FROM customer").await.unwrap();
-    //We have the value
+
     println!("We can get the value");
 
     let row = statement
